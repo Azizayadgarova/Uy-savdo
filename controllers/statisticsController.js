@@ -1,10 +1,9 @@
-// controllers/statisticsController.js
 const Property = require('../models/Property')
 const Order = require('../models/Order')
 
 exports.getDashboardStats = async (req, res) => {
 	try {
-		// CARDLAR
+		// CARDS
 		const totalProperties = await Property.countDocuments({
 			status: { $ne: 'deleted' },
 		})
@@ -13,29 +12,23 @@ exports.getDashboardStats = async (req, res) => {
 			status: 'active',
 		})
 		const hiddenProperties = await Property.countDocuments({ status: 'hidden' })
-
-		const totalUsers = await Order.distinct('phone') // aktiv foydalanuvchilar
-
-		const totalProfitAgg = await Order.aggregate([
+		const users = await Order.distinct('customerName')
+		const profitAgg = await Order.aggregate([
 			{ $group: { _id: null, total: { $sum: '$totalPrice' } } },
 		])
 
-		const totalProfit = totalProfitAgg[0]?.total || 0
-
-		// OYLIK TO‘LOVLAR
+		// PAYMENTS BY MONTH
 		const paymentsByMonth = await Order.aggregate([
 			{
 				$group: {
-					_id: {
-						month: { $month: '$createdAt' },
-						type: '$paymentType',
-					},
+					_id: { month: { $month: '$createdAt' } },
 					total: { $sum: '$totalPrice' },
 				},
 			},
+			{ $sort: { '_id.month': 1 } },
 		])
 
-		// OYLIK E’LONLAR
+		// PROPERTIES BY MONTH
 		const propertiesByMonth = await Property.aggregate([
 			{
 				$group: {
@@ -53,8 +46,8 @@ exports.getDashboardStats = async (req, res) => {
 				totalProperties,
 				goldProperties,
 				hiddenProperties,
-				users: totalUsers.length,
-				profit: totalProfit,
+				users: users.length,
+				profit: profitAgg[0]?.total || 0,
 			},
 			paymentsByMonth,
 			propertiesByMonth,
